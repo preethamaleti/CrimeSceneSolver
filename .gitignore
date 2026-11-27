@@ -1,29 +1,32 @@
-# VSCode + Python
-.idea/
-.venv/
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Node.js frontend
-frontend/node_modules/
-frontend/.env
-
-# Python model artifacts
-*.pt
+*.py[cod]
+*$py.class
+venv/
+env/
 *.pth
-*.ipynb_checkpoints/
 
-# Outputs
-frames/
-*.json
-*.log
+# Environment
+.env
+.env.local
 
-# Videos
-*.mp4
-*.avi
-*.mov
+# IDE
+.idea/
+.vscode/
+*.swp
 
-# System
+# OS
 .DS_Store
+Thumbs.db
+
+# Storage / Temp
+frames/
+uploads/
+backend/uploads/
