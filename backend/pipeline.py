@@ -10,7 +10,10 @@ import json
 import mimetypes
 
 # CONFIG
-model_path = "/Users/preetham_aleti/Desktop/scenesolver/best_model.pth"
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+default_model_path = os.path.join(BASE_DIR, "best_model.pth")
+model_path = os.getenv("MODEL_PATH", default_model_path)
+captions_path = os.path.join(BASE_DIR, "generalized_captions_generalized.txt")
 frames_dir = "frames"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -63,11 +66,22 @@ evidence_labels = [
 ]
 
 # Load CLIP model
-def load_clip_model(model_path):
+def load_clip_model(path=None):
+    target_path = path or model_path
+    if not os.path.exists(target_path):
+        try:
+            from huggingface_hub import hf_hub_download
+            print("Downloading fine-tuned weights from Hugging Face (preethamaleti/crimescenesolver)...")
+            target_path = hf_hub_download(repo_id="preethamaleti/crimescenesolver", filename="best_model.pth")
+        except Exception as e:
+            print(f"Notice: Local weight file not found at {target_path}. Using base CLIP weights. Details: {e}")
+            target_path = None
+
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-    state_dict = torch.load(model_path, map_location=device, weights_only=False)
-    model.load_state_dict(state_dict, strict=False)
+    if target_path and os.path.exists(target_path):
+        state_dict = torch.load(target_path, map_location=device, weights_only=False)
+        model.load_state_dict(state_dict, strict=False)
     model = model.to(device).eval()
     return model, processor
 
@@ -137,7 +151,7 @@ def summarize_captions(captions, max_length=500, min_length=100):
 # Analyze image
 def analyze_image(image_path):
     model, processor = load_clip_model(model_path)
-    generalized_captions = load_generalized_captions("/Users/preetham_aleti/Desktop/scenesolver/generalized_captions_generalized.txt")
+    generalized_captions = load_generalized_captions(captions_path)
 
     crime_pred = classify_image(model, processor, image_path, crime_labels, top_k=1)
     evidence_pred = classify_image(model, processor, image_path, evidence_labels, top_k=3)
@@ -160,7 +174,7 @@ def analyze_video(video_path):
     evidence_counter = Counter()
     selected_captions = []
 
-    generalized_captions = load_generalized_captions("/Users/preetham_aleti/Desktop/generalized_captions_generalized.txt")
+    generalized_captions = load_generalized_captions(captions_path)
 
     for frame in tqdm(frame_paths):
         crime_pred = classify_image(model, processor, frame, crime_labels, top_k=1)

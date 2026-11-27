@@ -299,13 +299,61 @@ Content-Type: application/json
 
 ---
 
+## Model Weights & Checkpoints (Hugging Face)
+
+Due to file size constraints on git version control (849 MB), the fine-tuned model checkpoint and categorical label encoders are hosted on Hugging Face:
+
+- **Hugging Face Model Repository**: [https://huggingface.co/preethamaleti/crimescenesolver](https://huggingface.co/preethamaleti/crimescenesolver)
+- **Hosted Artifacts**:
+  - `best_model.pth` (849 MB): PyTorch state dictionary of the fine-tuned multi-modal CLIP model.
+  - `label_encoder.pt` (1.8 KB): Serialized Scikit-learn LabelEncoder mapping output class logits to forensic crime categories.
+
+### Automated Weight Retrieval
+The backend inference engine (`backend/pipeline.py`) automatically checks for `best_model.pth` in the project root. If absent, it fetches the checkpoint directly from Hugging Face if `huggingface_hub` is installed:
+
+```python
+from huggingface_hub import hf_hub_download
+
+# Download and cache fine-tuned weights
+model_weights_path = hf_hub_download(
+    repo_id="preethamaleti/crimescenesolver",
+    filename="best_model.pth"
+)
+```
+
+Alternatively, download the file manually and place it in the project root:
+```bash
+# Direct download from Hugging Face
+curl -L -o best_model.pth https://huggingface.co/preethamaleti/crimescenesolver/resolve/main/best_model.pth
+```
+
+---
+
+## Datasets and Benchmark Reference
+
+The crime classification model was trained and validated on surveillance benchmarks curated from real-world CCTV feeds:
+
+### 1. UCF-Crime Anomaly Detection Dataset
+- **Academic Citation**: Sultani, W., Chen, C., & Shah, M. *"Real-world Anomaly Detection in Surveillance Videos"*, IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2018.
+- **Dataset Resource**: [UCF CRCV Project Page](https://www.crcv.ucf.edu/research/projects/real-world-anomaly-detection-in-surveillance-videos/)
+- **Kaggle Mirror**: [Kaggle Crime Dataset](https://www.kaggle.com/datasets/mission-ai/crime-dataset)
+- **Data Configuration**: 128 hours of untrimmed surveillance videos across real-world CCTV cameras. For SceneSolver, incident videos are processed into 64 temporal keyframes per event, annotated with dense frame-level forensic action captions (`captions_*.json`).
+- **Target Classification Categories**: Robbery, Explosion, Shoplifting, Shooting, Fighting, and Normal Action.
+
+### 2. Base Foundation Models
+- **Vision-Language Backbone**: OpenAI's [CLIP ViT-B/32](https://huggingface.co/openai/clip-vit-base-patch32) (224x224 input resolution, 512-dimensional shared multi-modal embedding space).
+- **Abstractive Text Summarizer**: Facebook's [BART Large CNN](https://huggingface.co/facebook/bart-large-cnn) (Bidirectional and Auto-Regressive Transformer fine-tuned on CNN/DailyMail).
+
+---
+
 ## Model Training and Customization
 
-For training details, refer to `train_model.ipynb`. The notebook outlines:
-1. Building vision-text pairs using crime-specific surveillance datasets.
-2. Generating normalized embeddings with `CLIPProcessor`.
-3. Loss function computation using symmetric cross-entropy over vision and text projections.
-4. Exporting fine-tuned weights (`best_model.pth`) for downstream deployment into `pipeline.py`.
+For complete training pipelines, refer to `train_model.ipynb`. The notebook details:
+1. Ingesting UCF-Crime video directories and parsing frame-level JSON caption annotations.
+2. Generating normalized visual tensors using `CLIPProcessor`.
+3. Constructing a custom `CLIPClassifier` projection head (`nn.Linear(512, num_classes)`).
+4. Optimization with AdamW ($lr = 5\times 10^{-6}$) and Cross-Entropy loss over train/validation splits.
+5. Exporting fine-tuned weights (`best_model.pth`) and class encoders (`label_encoder.pt`).
 
 ---
 
